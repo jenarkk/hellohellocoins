@@ -112,32 +112,20 @@ const RECIPE_PATH = "data/recipes.json";
 
 function getItems() {
     try {
-<<<<<<< HEAD
         if (!FileLib.exists("hellohellocoins", ITEMS_PATH)) return {};
         return JSON.parse(FileLib.read("hellohellocoins", ITEMS_PATH));
     } catch(e) {
         FileLib.delete("hellohellocoins", ITEMS_PATH);
-=======
-        return JSON.parse(FileLib.read("hellohellocoins", ITEMS_PATH))
-    } catch(e) {
-        FileLib.delete("hellohellocoins", ITEMS_PATH)
->>>>>>> 14cfa0ca4af7b09b16ebce37a9bbe6a60a640103
         return {};
     }
 }
 
 function getRecipes() {
     try {
-<<<<<<< HEAD
         if (!FileLib.exists("hellohellocoins", ITEMS_PATH)) return {};
         return JSON.parse(FileLib.read("hellohellocoins", RECIPE_PATH));
     } catch(e) {
         FileLib.delete("hellohellocoins", RECIPE_PATH);
-=======
-        return JSON.parse(FileLib.read("hellohellocoins", RECIPE_PATH))
-    } catch(e) {
-        FileLib.delete("hellohellocoins", RECIPE_PATH)
->>>>>>> 14cfa0ca4af7b09b16ebce37a9bbe6a60a640103
         return {};
     }
 }
