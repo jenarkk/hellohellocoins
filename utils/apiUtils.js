@@ -1,3 +1,4 @@
+import Promise from "../../PromiseV2";
 import { request } from "../../axios";
 import { logError } from "./utils";
 
@@ -60,25 +61,23 @@ function getInfo(itemId) {
     })
 }
 
-
-
 function getRecipe(itemId) {
     if (!itemId) return Promise.resolve(null);
 
     const recipes = getRecipes();
-    if (recipes[itemId]) return recipes[itemId];
+    if (recipes[itemId]) return Promise.resolve(recipes[itemId]);
 
     return getInfo(itemId).then(resp => {
-        if (resp.status !== 200) return Promise.resolve(null);
+        if (resp.status !== 200) return null;
 
         const data = resp.data;
-        if (!data || !data.recipe) return Promise.resolve(null);
+        if (!data || !data.recipe) return null;
 
         const info = cacheItemInfo(itemId, data);
         return info["recipe"];
     }).catch(e => {
         logError(e);
-        return Promise.resolve(null);
+        return null;
     })
 }
 
@@ -86,19 +85,19 @@ function getDisplayName(itemId) {
     if (!itemId) return Promise.resolve(null);
 
     const items = getItems();
-    if (items[itemId]) return items[itemId];
+    if (items[itemId]) return Promise.resolve(items[itemId]);
 
     return getInfo(itemId).then(resp => {
-        if (resp.status !== 200) return Promise.resolve(null);
+        if (resp.status !== 200) return null;
 
         const data = resp.data;
-        if (!data || !data.displayname) return Promise.resolve(null);
+        if (!data || !data.displayname) return null;
 
         const info = cacheItemInfo(itemId, data);
         return info["itemName"];
     }).catch(e => {
         logError(e);
-        return Promise.resolve(null);
+        return null;
     })
 }
 
@@ -122,7 +121,7 @@ function getItems() {
 
 function getRecipes() {
     try {
-        if (!FileLib.exists("hellohellocoins", ITEMS_PATH)) return {};
+        if (!FileLib.exists("hellohellocoins", RECIPE_PATH)) return {};
         return JSON.parse(FileLib.read("hellohellocoins", RECIPE_PATH));
     } catch(e) {
         FileLib.delete("hellohellocoins", RECIPE_PATH);
@@ -140,7 +139,7 @@ function cacheItemInfo(itemId, data) {
         items[itemId] = itemName;
         info["itemName"] = itemName;
 
-        FileLib.write("hellohellocoins", ITEMS_PATH, JSON.stringify(items));
+        FileLib.write("hellohellocoins", ITEMS_PATH, JSON.stringify(items), true);
     }
 
     if (data.recipe) {
@@ -169,7 +168,7 @@ function cacheItemInfo(itemId, data) {
         recipes[itemId] = recipeObj;
         info["recipe"] = recipeObj;
         
-        FileLib.write("hellohellocoins", RECIPE_PATH, JSON.stringify(recipes));
+        FileLib.write("hellohellocoins", RECIPE_PATH, JSON.stringify(recipes), true);
     }
 
     return info;
