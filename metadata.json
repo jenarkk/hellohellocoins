@@ -2,6 +2,6 @@
   "name": "hellohellocoins",
   "creator": "jenark",
   "version": "1.0.0",
-  "requires": ["Vigilance", "axios", "BloomCore"],
+  "requires": ["Vigilance", "axios", "PromiseV2", "BloomCore"],
   "entry": "index.js"
 }
