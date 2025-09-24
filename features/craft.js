@@ -1,7 +1,9 @@
 import hhcCommand from "../events/hhcCommand";
 import apiUtils from "../utils/apiUtils";
-import { chat, getBINTax, logError } from "../utils/utils";
+import { chat, logError } from "../utils/utils";
 import { fn } from "../../BloomCore/utils/Utils";
+import PriceUtils from "../../BloomCore/PriceUtils";
+import colorUtils from "../utils/colorUtils";
 
 hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 5) => {
     chat("&aFetching " + amount + " flips...");
@@ -21,20 +23,40 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
             return b.volume - a.volume;
         })
 
+        ChatLib.chat("");
+
         for (let i = 0; i < amount; i++) {
             (() => {})(i);
 
             const flip = flips[i];
-            const sellPrice = Math.min(flip.sellPrice, flip.median);
-            const profit = Math.floor(Math.max(0, sellPrice - flip.craftCost));
+
             const volume = flip.volume;
             const itemId = flip.itemId;
 
-            const color = volume > 30 ? "&a" : volume > 15 ? "&e" : volume > 5 ? "&c" : "&4";
+            const sellInfo = PriceUtils.getPrice(itemId, true);
+            const location = getLocation(sellInfo[1]);
 
-            new TextComponent(color + itemId)
-                .setHoverValue("Profit Per: " + fn(profit - getBINTax(profit)) + " - Volume: " + volume)
-                .setClickAction("hhc craft " + itemId)
+            let profit = Math.max(0, Math.min(flip.sellPrice, flip.median) - flip.craftCost);
+            profit = sellInfo[1] ? profit : PriceUtils.getBINPriceAfterTax(profit); // apply tax
+            profit = fn(Math.floor(profit)); // format the number
+
+            const coinsColor = colorUtils.getCoinsColor(profit);
+            const volumeColor = colorUtils.getVolumeColor(volume);
+
+            const hoverLines = [
+                "&e&lClick to show the recipe of this item.    ",
+                "",
+                coinsColor + "Profit: " + profit,
+                volumeColor + "Volume: " + volume,
+                "",
+                "&7Sell Price: " + fn(sellInfo[0]),
+                "&7Location: " + location
+            ];
+
+            new TextComponent(volumeColor + itemId)
+                .setHoverValue(hoverLines.join("\n"))
+                .setClickAction("run_command")
+                .setClickValue("/hhc viewrecipe " + itemId)
                 .chat();
         }
     }).catch(e => {
@@ -42,57 +64,74 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
     });
 })
 
-hhcCommand.addCommand("craft", "Starts the crafting macro", (itemId) => {
-    if (!itemId) return chat("&cInvalid parameter. (Item ID needed)");
+hhcCommand.addCommand("viewrecipe", "Shows all of the materials required for an item", (itemId) => {
+    if (!itemId) return chat("&cInvalid parameter. (Item ID)");
     itemId = itemId.toUpperCase();
 
-    let recipe = ["", "", "", "", "", "", "", "", ""];
-
-    apiUtils.getInfo(itemId).then(resp => {
-        if (resp.status !== 200) return chat("&cError code: " + resp.status);
-
-        const data = resp.data;
-        if (!data.recipe) return chat("&cCouldn't fetch recipe for: " + itemId);
-        if (!data.displayname) return chat("&cCouldn't fetch display name for: " + itemId);
-
-        Object.keys(data.recipe).forEach((mat, idx) => recipe[idx] = data.recipe[mat]);
-        if (!recipe.some(m => m.length)) return chat("&cEmpty recipe for: " + itemId);
-
-        craft(recipe);
+    apiUtils.getRecipe(itemId).then(recipe => {
+        if (!recipe) return chat("Failed to fetch the recipe for: " + itemId);
+        showRecipe(recipe);
     });
 })
 
-function craft(recipe) {
-    const materials = {
-        // id: amount
-    };
+function showRecipe(recipe) {
+    ChatLib.chat("");
 
-    for (let i = 0; i < recipe.length; i++) {
-        const material = recipe[i];
-        if (!material.length) continue;
+    Object.entries(recipe).forEach(([itemId, amount]) => {
+        apiUtils.getDisplayName(itemId).then(displayName => {
+            if (!displayName) return chat("&cFailed to fetch display name for: " + itemId);
 
-        const info = material.split(":");
+            const sellInfo = PriceUtils.getPrice(itemId, true);
+            if (sellInfo == null) return chat("&Failed to fetch item value for: " + itemId);
 
-        const id = info[0];
-        const amount = parseInt(info[1]);
+            const buyPrice = sellInfo[0] * parseInt(amount);
+            const location = getLocation(sellInfo[1]);
 
-        materials[id] = (materials[id] ?? 0) + amount;
-    }
+            const coinsColor = colorUtils.reverse(colorUtils.getCoinsColor(buyPrice));
+            const amountColor = colorUtils.getAmountColor(amount);
 
-    Object.keys(materials).forEach(id => {
-        const amount = materials[id];
+            const hoverLines = [
+                "&e&lClick to purchase these materials.    ",
+                "",
+                coinsColor + "Price: " + fn(Math.floor(buyPrice)),
+                amountColor + "Amount: " + amount,
+                "",
+                "&7Display name: " + displayName,
+                "&7Location: " + location
+            ];
 
-        apiUtils.getInfo(id).then(r => {
-            if (r.status !== 200) return;
-
-            const data = r.data;
-
-            const displayName = data.displayname;
-            if (!displayName) return chat("&cCouldn't fetch display name for: " + id);
-
-            ChatLib.chat(displayName.removeFormatting() + " - " + amount + "x");
-
-            // todo: get whether the material is on the ah / bz
+            new TextComponent(coinsColor + itemId)
+                .setHoverValue(hoverLines.join("\n"))
+                .setClickAction("suggest_command")
+                .setClickValue("/hhc purchase " + sellInfo[1] + " " + amount + " " + ChatLib.removeFormatting(displayName))
+                .chat();
         })
     })
 }
+
+hhcCommand.addCommand("purchase", "Purchases a material from the AH / BZ", (location, amount, ...name) => {
+    if (!location) return chat("&cInvalid parameter. (Item Location)")
+    if (!amount) return chat("&cInvalid parameter. (Amount)");
+
+    if (!name) return chat("&cInvalid parameter. (Item Name)");
+    name = name.join(" ");
+
+    chat("&aPurchasing item: " + name);
+
+    switch (location) {
+        // AH
+        case "0": {
+            ChatLib.command("ahs " + name, false);
+
+            break;
+        }
+        // BZ
+        case "1": {
+            ChatLib.command("bz " + name, false);
+
+            break;
+        }
+    }
+})
+
+const getLocation = (id) => id ? "Bazaar" : "Auction House";
