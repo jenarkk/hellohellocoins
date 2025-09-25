@@ -1,6 +1,6 @@
 import hhcCommand from "../events/hhcCommand";
 import apiUtils from "../utils/apiUtils";
-import { chat, logError } from "../utils/utils";
+import { chat, getBazaarPriceAfterTax, logError } from "../utils/utils";
 import { fn } from "../../BloomCore/utils/Utils";
 import PriceUtils from "../../BloomCore/PriceUtils";
 import colorUtils from "../utils/colorUtils";
@@ -19,8 +19,6 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
             b.profit = b.fixedPrice - b.craftCost;
 
             return b.profit - a.profit;
-        }).splice(0, amount).sort((a, b) => {
-            return b.volume - a.volume;
         })
 
         ChatLib.chat("");
@@ -31,13 +29,15 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
             const flip = flips[i];
 
             const volume = flip.volume;
+
+            const itemName = ChatLib.removeFormatting(flip.itemName);
             const itemId = flip.itemId;
 
-            const sellInfo = PriceUtils.getPrice(itemId, true);
+            const sellInfo = PriceUtils.getSellPrice(itemId, true);
             const location = getLocation(sellInfo[1]);
 
             let profit = Math.max(0, Math.min(flip.sellPrice, flip.median) - flip.craftCost);
-            profit = sellInfo[1] ? profit : PriceUtils.getBINPriceAfterTax(profit); // apply tax
+            profit = sellInfo[1] ? getBazaarPriceAfterTax(profit) : PriceUtils.getBINPriceAfterTax(profit); // apply tax
             profit = fn(Math.floor(profit)); // format the number
 
             const coinsColor = colorUtils.getCoinsColor(profit);
@@ -49,12 +49,13 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
                 coinsColor + "Profit: " + profit,
                 volumeColor + "Volume: " + volume,
                 "",
-                "&7Sell Price: " + fn(sellInfo[0]),
-                "&7Location: " + location
-            ];
+                "&7Sell Price: " + fn(Math.floor(sellInfo[0])),
+                "&7Location: " + location,
+                "&7Item ID: " + itemId
+            ].join("\n");
 
-            new TextComponent(volumeColor + itemId)
-                .setHoverValue(hoverLines.join("\n"))
+            new TextComponent(volumeColor + itemName)
+                .setHoverValue(hoverLines)
                 .setClickAction("run_command")
                 .setClickValue("/hhc viewrecipe " + itemId)
                 .chat();
@@ -81,29 +82,29 @@ function showRecipe(recipe) {
         apiUtils.getDisplayName(itemId).then(displayName => {
             if (!displayName) return chat("&cFailed to fetch display name for: " + itemId);
 
-            const sellInfo = PriceUtils.getPrice(itemId, true);
-            if (sellInfo == null) return chat("&Failed to fetch item value for: " + itemId);
+            const buyInfo = PriceUtils.getPrice(itemId, true);
+            if (buyInfo == null) return chat("&Failed to fetch item value for: " + itemId);
 
-            const buyPrice = sellInfo[0] * parseInt(amount);
-            const location = getLocation(sellInfo[1]);
+            const buyPrice = buyInfo[0] * parseInt(amount);
+            const location = getLocation(buyInfo[1]);
 
             const coinsColor = colorUtils.reverse(colorUtils.getCoinsColor(buyPrice));
             const amountColor = colorUtils.getAmountColor(amount);
 
             const hoverLines = [
-                "&e&lClick to purchase these materials.    ",
+                "&e&lClick to purchase this material.    ",
                 "",
                 coinsColor + "Price: " + fn(Math.floor(buyPrice)),
                 amountColor + "Amount: " + amount,
                 "",
-                "&7Display name: " + displayName,
+                "&7Item ID: " + itemId,
                 "&7Location: " + location
-            ];
+            ].join("\n");
 
-            new TextComponent(coinsColor + itemId)
-                .setHoverValue(hoverLines.join("\n"))
+            new TextComponent(coinsColor + displayName)
+                .setHoverValue(hoverLines)
                 .setClickAction("suggest_command")
-                .setClickValue("/hhc purchase " + sellInfo[1] + " " + amount + " " + ChatLib.removeFormatting(displayName))
+                .setClickValue("/hhc purchase " + buyInfo[1] + " " + amount + " " + ChatLib.removeFormatting(displayName))
                 .chat();
         })
     })

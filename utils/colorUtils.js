@@ -17,7 +17,7 @@ function getCoinsColor(profit) {
 }
 
 function getVolumeColor(volume) {
-    return volume >= 50 ? GREAT : volume >= 30 ? GOOD : volume >= 15 ? MEDIOCRE : volume >= 5 ? BAD : TERRIBLE;
+    return volume >= 30 ? GREAT : volume >= 20 ? GOOD : volume >= 10 ? MEDIOCRE : volume >= 5 ? BAD : TERRIBLE;
 }
 
 function getAmountColor(amount) {

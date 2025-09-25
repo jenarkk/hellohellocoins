@@ -1,6 +1,6 @@
 import Promise from "../../PromiseV2";
 import { request } from "../../axios";
-import { logError } from "./utils";
+import { chat, logError } from "./utils";
 
 const COFLNET_URL = "https://sky.coflnet.com/api/";
 const NEU_ITEMS_URL = "https://raw.githubusercontent.com/NotEnoughUpdates/NotEnoughUpdates-REPO/refs/heads/master/items/";
@@ -56,8 +56,8 @@ function getInfo(itemId) {
         headers: {
             "accept": "text/plain",
             "Content-Type": "application/json-patch+json",
-            "User-Agent": "Mozilla/5.0"
-        },
+            "User-Agent": USER_AGENT
+        }
     })
 }
 
@@ -68,10 +68,16 @@ function getRecipe(itemId) {
     if (recipes[itemId]) return Promise.resolve(recipes[itemId]);
 
     return getInfo(itemId).then(resp => {
-        if (resp.status !== 200) return null;
+        if (resp.status !== 200) {
+            chat("&cError code: " + resp.status);
+            return null;
+        }
 
         const data = resp.data;
-        if (!data || !data.recipe) return null;
+        if (!data || !data.recipe) {
+            chat("&cInvalid response: " + JSON.stringify(resp));
+            return null;
+        }
 
         const info = cacheItemInfo(itemId, data);
         return info["recipe"];
