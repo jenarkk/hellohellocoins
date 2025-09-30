@@ -1,9 +1,9 @@
 import hhcCommand from "../events/hhcCommand";
 import apiUtils from "../utils/apiUtils";
-import { chat, getBazaarPriceAfterTax, logError } from "../utils/utils";
-import { fn } from "../../BloomCore/utils/Utils";
-import PriceUtils from "../../BloomCore/PriceUtils";
+import priceUtils from "../utils/priceUtils";
 import colorUtils from "../utils/colorUtils";
+import { chat, getLocation, logError } from "../utils/utils";
+import { fn } from "../../BloomCore/utils/Utils";
 
 hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 5) => {
     chat("&aFetching " + amount + " flips...");
@@ -33,11 +33,11 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
             const itemName = ChatLib.removeFormatting(flip.itemName);
             const itemId = flip.itemId;
 
-            const sellInfo = PriceUtils.getSellPrice(itemId, true);
+            const sellInfo = priceUtils.getSellPrice(itemId, true);
             const location = getLocation(sellInfo[1]);
 
             let profit = Math.max(0, Math.min(flip.sellPrice, flip.median) - flip.craftCost);
-            profit = sellInfo[1] ? getBazaarPriceAfterTax(profit) : PriceUtils.getBINPriceAfterTax(profit); // apply tax
+            profit = sellInfo[1] ? priceUtils.getBazaarPriceAfterTax(profit) : priceUtils.getBINPriceAfterTax(profit); // apply tax
             profit = fn(Math.floor(profit)); // format the number
 
             const coinsColor = colorUtils.getCoinsColor(profit);
@@ -65,7 +65,7 @@ hhcCommand.addCommand("crafts", "Lists the current best craft flips", (amount = 
     });
 })
 
-hhcCommand.addCommand("viewrecipe", "Shows all of the materials required for an item", (itemId) => {
+hhcCommand.addCommand("viewrecipe", "Shows info about the recipe for an item", (itemId) => {
     if (!itemId) return chat("&cInvalid parameter. (Item ID)");
     itemId = itemId.toUpperCase();
 
@@ -82,7 +82,7 @@ function showRecipe(recipe) {
         apiUtils.getDisplayName(itemId).then(displayName => {
             if (!displayName) return chat("&cFailed to fetch display name for: " + itemId);
 
-            const buyInfo = PriceUtils.getPrice(itemId, true);
+            const buyInfo = priceUtils.getBuyPrice(itemId, true);
             if (buyInfo == null) return chat("&Failed to fetch item value for: " + itemId);
 
             const buyPrice = buyInfo[0] * parseInt(amount);
@@ -103,7 +103,7 @@ function showRecipe(recipe) {
 
             new TextComponent(coinsColor + displayName)
                 .setHoverValue(hoverLines)
-                .setClickAction("suggest_command")
+                .setClickAction("run_command")
                 .setClickValue("/hhc purchase " + buyInfo[1] + " " + amount + " " + ChatLib.removeFormatting(displayName))
                 .chat();
         })
@@ -134,5 +134,3 @@ hhcCommand.addCommand("purchase", "Purchases a material from the AH / BZ", (loca
         }
     }
 })
-
-const getLocation = (id) => id ? "Bazaar" : "Auction House";
